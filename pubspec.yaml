@@ -1,5 +1,5 @@
 name: fluent_qcloud_cos
-resolution: workspace
+#resolution: workspace
 description: Tencent Cloud Object Storage Upload Plugin, supports fast upload and progress display 腾讯云对象存储上传插件, 支持分快上传, 进度显示.
 version: 0.2.4
 homepage: https://github.com/jiejie-dev/fluent_qcloud_cos
@@ -21,6 +21,14 @@ dependencies:
   sync: ^0.3.0
   platform_file: ^0.1.1
   dio: ^5.4.0
+
+dependency_overrides:
+  fluent_object_storage:
+    git:
+      url: https://github.com/jiejie-dev/fluent_object_storage
+  platform_file:
+    git:
+      url: https://github.com/jiejie-dev/flutter_platform_file
 
 dev_dependencies:
   flutter_test:

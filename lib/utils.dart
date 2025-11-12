@@ -112,6 +112,9 @@ Future<Response<T>> cosRequest<T>(
   required ObjectStoragePutObjectRequest putObjectRequest,
   Map<String, String?> params = const {},
   Map<String, String?> headers = const {},
+  required Dio dio,
+  required CancelToken? cancelToken,
+  ProgressCallback? onSendProgress,
   String? token,
   String scheme = "https",
   Stream? stream,
@@ -122,7 +125,6 @@ Future<Response<T>> cosRequest<T>(
   if (urlParams.isNotEmpty) {
     urlParams = "?$urlParams";
   }
-  final dio = Dio();
 
   if (!action.startsWith("/")) {
     action = "/$action";
@@ -154,6 +156,8 @@ Future<Response<T>> cosRequest<T>(
         headers: reqHeaders,
         validateStatus: (status) => true,
       ),
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
     );
     return resp;
   } catch (e) {

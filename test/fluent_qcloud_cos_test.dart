@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:fluent_qcloud_cos/models/complete_multipart_upload.dart';
 import 'package:fluent_qcloud_cos/models/initiate_multipart_upload_result.dart';
 import 'package:fluent_qcloud_cos/models/list_multipart_uploads.dart';
@@ -176,6 +177,7 @@ void main() async {
     };
     final smallFile = createSmallFile();
     await FluentQCloudCos.putObjectSimple(
+      Dio(),
       ObjectStoragePutObjectRequest(
         taskId: "putObjectSimple",
         file: smallFile,
@@ -211,6 +213,7 @@ void main() async {
     };
     final largeFile = createLargeFile();
     await FluentQCloudCos.putObjectMultiPart(
+      Dio(),
       ObjectStoragePutObjectRequest(
         taskId: "putObjectMultiPart",
         file: largeFile,
@@ -233,6 +236,7 @@ void main() async {
     wg.add();
     final largeFile = createLargeFile();
     final result = await FluentQCloudCos.initiateMultipartUpload(
+      Dio(),
       ObjectStoragePutObjectRequest(
         taskId: "initiateMultipartUpload",
         file: largeFile,
