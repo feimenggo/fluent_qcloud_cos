@@ -8,8 +8,10 @@ import 'package:fluent_qcloud_cos/models/divide_part_result.dart';
 import 'package:platform_file/platform_file.dart';
 import 'package:xml/xml.dart';
 
-cosLog(String msg) {
-  log(msg, name: "Fluent QCloud COS");
+bool showFluentQCloudCOSLog = false;
+
+void cosLog(String msg) {
+  if (showFluentQCloudCOSLog) log(msg, name: "Fluent QCloud COS");
 }
 
 XmlElement subElem(XmlElement node, String name) {
