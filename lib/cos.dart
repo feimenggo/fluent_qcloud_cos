@@ -21,17 +21,17 @@ class FluentQCloudCos {
   /// 文件上传
   /// 当文件大于 20M 时自动启用分快上传, 否则使用简单文件上传
   static Future<void> putObject(ObjectStoragePutObjectRequest request,
-      {ObjectStoragePutObjectEventHandler? handler, Dio? dio, CancelToken? cancelToken, ProgressCallback? onSendProgress}) async {
+      {ObjectStoragePutObjectEventHandler? handler, Dio? dio, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header}) async {
     final fileSize = request.file.size;
     if (fileSize > request.divisionForUpload) {
-      await putObjectMultiPart(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress);
+      await putObjectMultiPart(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress, header: header);
     } else {
-      await putObjectSimple(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress);
+      await putObjectSimple(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress, header: header);
     }
   }
 
   static Future<void> putObjectMultiPart(Dio dio, ObjectStoragePutObjectRequest request,
-      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress}) async {
+      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header}) async {
     String? uploadId = await getResumableUploadId(dio, cancelToken, request);
     if (uploadId == null) {
       final initResult = await initiateMultipartUpload(dio, request, cancelToken: cancelToken);
@@ -66,7 +66,7 @@ class FluentQCloudCos {
         continue;
       }
 
-      chunk.eTag = await uploadPart(dio, cancelToken, onSendProgress, uploadId, chunk.number, partData, request);
+      chunk.eTag = await uploadPart(dio, cancelToken, onSendProgress, uploadId, chunk.number, partData, request, header);
 
       if (handler?.onProgress != null) {
         cosLog('onProgress: ${chunk.offset + chunk.size}/$fileSize');
@@ -87,7 +87,7 @@ class FluentQCloudCos {
   }
 
   static Future<String?> putObjectSimple(Dio dio, ObjectStoragePutObjectRequest request,
-      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress}) async {
+      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header}) async {
     cosLog("putObjectSimple");
     int fileSize = request.file.size;
     String? contentType = lookupMimeType(request.file.name);
@@ -101,7 +101,8 @@ class FluentQCloudCos {
       putObjectRequest: request,
       headers: {
         "content-type": contentType,
-        "content-length": fileSize.toString()
+        "content-length": fileSize.toString(),
+        if (header != null) ...header,
       },
       token: request.securityToken,
       stream: request.file.readStream,
@@ -148,6 +149,7 @@ class FluentQCloudCos {
     int partNumber,
     List<int> partData,
     ObjectStoragePutObjectRequest request,
+    Map<String, String?>? header,
   ) async {
     String? contentType = lookupMimeType(request.file.name);
 
@@ -163,6 +165,7 @@ class FluentQCloudCos {
       headers: {
         "content-type": contentType,
         "content-length": partData.length.toString(),
+        if (header != null) ...header,
       },
       token: request.securityToken,
       stream: fs,
