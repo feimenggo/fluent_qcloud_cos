@@ -65,6 +65,15 @@ class FluentQCloudCos {
       if (chunk.done) {
         continue;
       }
+      if (handler?.onProgress != null) {
+        cosLog('onProgress: ${chunk.offset}/$fileSize');
+        handler!.onProgress!(ObjectStoragePutObjectResult(
+          taskId: request.taskId,
+          event: 'onProgress',
+          currentSize: chunk.offset,
+          totalSize: fileSize,
+        ));
+      }
 
       chunk.eTag = await uploadPart(dio, cancelToken, onSendProgress, uploadId, chunk.number, partData, request, header);
 
