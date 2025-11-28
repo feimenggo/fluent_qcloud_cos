@@ -100,7 +100,14 @@ class FluentQCloudCos {
     cosLog("putObjectSimple");
     int fileSize = request.file.size;
     String? contentType = lookupMimeType(request.file.name);
-
+    if (handler?.onProgress != null) {
+      handler!.onProgress!(ObjectStoragePutObjectResult(
+        taskId: request.taskId,
+        event: 'onProgress',
+        currentSize: 0,
+        totalSize: fileSize,
+      ));
+    }
     final response = await cosRequest<String>(
       "PUT",
       request.objectName,
