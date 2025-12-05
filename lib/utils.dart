@@ -119,6 +119,7 @@ Future<Response<T>> cosRequest<T>(
   ProgressCallback? onSendProgress,
   String? token,
   String scheme = "https",
+  required String? domain,
   Stream? stream,
   Object? data,
 }) async {
@@ -133,8 +134,9 @@ Future<Response<T>> cosRequest<T>(
   }
 
   // "$scheme://$bucketName.cos.$region.myqcloud.com"
-  final uri =
-      "$scheme://${putObjectRequest.bucketName}.cos.${putObjectRequest.accelerate ? "accelerate" : putObjectRequest.region}.myqcloud.com";
+  final uri = domain != null
+      ? "$scheme://$domain"
+      : "$scheme://${putObjectRequest.bucketName}.cos.${putObjectRequest.accelerate ? "accelerate" : putObjectRequest.region}.myqcloud.com";
   var sighn = getSign(
     method,
     action,

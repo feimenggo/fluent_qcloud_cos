@@ -249,7 +249,7 @@ void main() async {
         region: region!,
         securityToken: '',
       ),
-      null,
+      null, null,
     );
     cosLog(result.uploadId);
     wg.wait();

@@ -21,26 +21,26 @@ class FluentQCloudCos {
   /// 文件上传
   /// 当文件大于 20M 时自动启用分快上传, 否则使用简单文件上传
   static Future<void> putObject(ObjectStoragePutObjectRequest request,
-      {ObjectStoragePutObjectEventHandler? handler, Dio? dio, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header}) async {
+      {ObjectStoragePutObjectEventHandler? handler, Dio? dio, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header, String? domain}) async {
     final fileSize = request.file.size;
     if (fileSize > request.divisionForUpload) {
-      await putObjectMultiPart(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress, header: header);
+      await putObjectMultiPart(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress, header: header, domain: domain);
     } else {
-      await putObjectSimple(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress, header: header);
+      await putObjectSimple(dio ?? Dio(), request, handler: handler, cancelToken: cancelToken, onSendProgress: onSendProgress, header: header, domain: domain);
     }
   }
 
   static Future<void> putObjectMultiPart(Dio dio, ObjectStoragePutObjectRequest request,
-      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header}) async {
-    String? uploadId = await getResumableUploadId(dio, cancelToken, request, header);
+      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header, String? domain}) async {
+    String? uploadId = await getResumableUploadId(dio, cancelToken, request, header, domain);
     if (uploadId == null) {
-      final initResult = await initiateMultipartUpload(dio, request, header, cancelToken: cancelToken);
+      final initResult = await initiateMultipartUpload(dio, request, header, domain, cancelToken: cancelToken);
       uploadId = initResult.uploadId;
     }
     final splitResult =
         await splitFileIntoChunks(request.file, request.sliceSizeForUpload);
     final chunks = splitResult.chunks;
-    final partsResult = await listParts(dio, cancelToken, uploadId, request, header);
+    final partsResult = await listParts(dio, cancelToken, uploadId, request, header, domain);
     for (var part in partsResult.parts) {
       int partNumber = part.partNumber;
       if (partNumber > splitResult.divider.partNumber) {
@@ -75,7 +75,7 @@ class FluentQCloudCos {
         ));
       }
 
-      chunk.eTag = await uploadPart(dio, cancelToken, onSendProgress, uploadId, chunk.number, partData, request, header);
+      chunk.eTag = await uploadPart(dio, cancelToken, onSendProgress, uploadId, chunk.number, partData, request, header, domain);
 
       if (handler?.onProgress != null) {
         cosLog('onProgress: ${chunk.offset + chunk.size}/$fileSize');
@@ -88,7 +88,7 @@ class FluentQCloudCos {
       }
     }
     // await reader.cancel();
-    await completeMultipartUpload(dio, cancelToken, uploadId, chunks, request, header);
+    await completeMultipartUpload(dio, cancelToken, uploadId, chunks, request, header, domain);
     if (handler?.onSuccess != null) {
       handler!.onSuccess!(ObjectStoragePutObjectResult(
           taskId: request.taskId, event: 'onSuccess'));
@@ -96,7 +96,7 @@ class FluentQCloudCos {
   }
 
   static Future<String?> putObjectSimple(Dio dio, ObjectStoragePutObjectRequest request,
-      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header}) async {
+      {ObjectStoragePutObjectEventHandler? handler, CancelToken? cancelToken, ProgressCallback? onSendProgress, Map<String, String?>? header, String? domain}) async {
     cosLog("putObjectSimple");
     int fileSize = request.file.size;
     String? contentType = lookupMimeType(request.file.name);
@@ -121,6 +121,7 @@ class FluentQCloudCos {
         ...?header,
       },
       token: request.securityToken,
+      domain: domain,
       stream: request.file.readStream,
       data: request.file.bytes,
     );
@@ -139,7 +140,7 @@ class FluentQCloudCos {
 
   /// 初始化分快上传
   static Future<InitiateMultipartUploadResult> initiateMultipartUpload(
-      Dio dio, ObjectStoragePutObjectRequest request, Map<String, String?>? header, {CancelToken? cancelToken}) async {
+      Dio dio, ObjectStoragePutObjectRequest request, Map<String, String?>? header, String? domain, {CancelToken? cancelToken}) async {
     final resp = await cosRequest<String>(
       'POST',
       request.objectName,
@@ -148,6 +149,7 @@ class FluentQCloudCos {
       putObjectRequest: request,
       params: {"uploads": "", ...?header},
       token: request.securityToken,
+      domain: domain,
     );
     // final xmlContent = await resp.transform(utf8.decoder).join("");
     if (resp.statusCode != 200) {
@@ -165,7 +167,7 @@ class FluentQCloudCos {
     int partNumber,
     List<int> partData,
     ObjectStoragePutObjectRequest request,
-    Map<String, String?>? header,
+    Map<String, String?>? header, String? domain,
   ) async {
     String? contentType = lookupMimeType(request.file.name);
 
@@ -184,6 +186,7 @@ class FluentQCloudCos {
         ...?header,
       },
       token: request.securityToken,
+      domain: domain,
       stream: fs,
     );
     // final xmlContent = await resp.transform(utf8.decoder).join("");
@@ -198,7 +201,7 @@ class FluentQCloudCos {
     Dio dio, CancelToken? cancelToken,
     String uploadId,
     List<Chunk> chunks,
-    ObjectStoragePutObjectRequest request, Map<String, String?>? header,
+    ObjectStoragePutObjectRequest request, Map<String, String?>? header, String? domain
   ) async {
     final payload = CompleteMultipartUpload(chunks);
     final xmlContent = payload.xmlContent();
@@ -213,6 +216,7 @@ class FluentQCloudCos {
       token: request.securityToken,
       data: utf8.encode(xmlContent),
       headers: {"content-type": "application/xml", ...?header},
+      domain: domain,
     );
 
     // final resultXmlContent = await resp.transform(utf8.decoder).join("");
@@ -229,7 +233,7 @@ class FluentQCloudCos {
   static Future<void> abortMultipartUpload() async {}
 
   static Future<ListMultipartUploadsResult> listMultipartUploads(
-      Dio dio, CancelToken? cancelToken, ObjectStoragePutObjectRequest request, Map<String, String?>? header) async {
+      Dio dio, CancelToken? cancelToken, ObjectStoragePutObjectRequest request, Map<String, String?>? header, String? domain) async {
     final resp = await cosRequest<String>(
       'GET',
       '',
@@ -238,6 +242,7 @@ class FluentQCloudCos {
       putObjectRequest: request,
       params: {'prefix': request.objectName, 'uploads': '', ...?header},
       token: request.securityToken,
+      domain: domain,
     );
     // final xmlContent = await resp.transform(utf8.decoder).join("");
     if (resp.statusCode != 200) {
@@ -248,9 +253,9 @@ class FluentQCloudCos {
 
   /// 获取未完成的分块上传ID UploadId
   static Future<String?> getResumableUploadId(
-      Dio dio, CancelToken? cancelToken, ObjectStoragePutObjectRequest request, Map<String, String?>? header) async {
+      Dio dio, CancelToken? cancelToken, ObjectStoragePutObjectRequest request, Map<String, String?>? header, String? domain) async {
     try {
-      final uploadsResult = await listMultipartUploads(dio, cancelToken, request, header);
+      final uploadsResult = await listMultipartUploads(dio, cancelToken, request, header, domain);
       if (uploadsResult.uploads.isEmpty) {
         return null;
       }
@@ -266,7 +271,7 @@ class FluentQCloudCos {
   /// 即罗列出指定 UploadId 所属的所有已上传成功的分块。
   static Future<ListPartsResult> listParts(
     Dio dio, CancelToken? cancelToken, String uploadId,
-    ObjectStoragePutObjectRequest request, Map<String, String?>? header,
+    ObjectStoragePutObjectRequest request, Map<String, String?>? header, String? domain
   ) async {
     final resp = await cosRequest<String>(
       'GET',
@@ -276,6 +281,7 @@ class FluentQCloudCos {
       putObjectRequest: request,
       params: {'uploadId': uploadId, ...?header},
       token: request.securityToken,
+      domain: domain,
     );
     // final xmlContent = await resp.transform(utf8.decoder).join("");
     if (resp.statusCode != 200) {
